@@ -1,5 +1,53 @@
-# smart-school-stylist
+# Smart School Stylist
 
+A multi-agent AI assistant built with Google ADK that helps children choose personalized school outfits based on weather, school schedule, wardrobe items, and personal preferences.
+
+## Project Track
+
+Concierge Agents
+
+## What It Does
+
+Smart School Stylist helps families reduce morning stress by recommending school outfits for children.
+
+The agent considers:
+- Child profile and preferences
+- Available wardrobe items
+- Weather conditions
+- School activities such as PE, art, regular school, or special events
+
+## Current MVP
+
+The current version uses mock wardrobe data for Emma and Mia.
+
+It returns three outfit recommendations:
+1. Best for Comfort
+2. Best for Style
+3. Best for Weather
+
+## Agent Workflow
+
+User request  
+→ Load child profile  
+→ Load wardrobe items  
+→ Analyze weather  
+→ Analyze school day  
+→ Recommend outfits  
+→ Format final response
+
+## Tech Stack
+
+- Google ADK
+- Agents CLI
+- Gemini
+- Python
+- Pydantic
+- Pytest
+
+## Demo Prompt
+
+```text
+Suggest an outfit for Emma. It is 60°F and rainy today. She has PE class.
 Simple ReAct agent
 Agent generated with `agents-cli` version `0.5.0`
 
