@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import os
-from typing import AsyncGenerator
+import logging
+from typing import AsyncGenerator, Any
 import google.auth
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,8 @@ from google.adk.workflow import Workflow, START
 from google.adk.events.event import Event
 from google.adk.agents.context import Context
 from google.genai import types
+
+logger = logging.getLogger("smart_school_stylist")
 
 # Setup authentication and runtime config
 # Support both Gemini API Key (.env/local) and Vertex AI (Google Cloud)
@@ -154,40 +157,52 @@ MOCK_WARDROBE = [
 
 def load_child_profile(ctx: Context, node_input: types.Content) -> Event:
     """Step 1: Parse the user prompt to identify which child profile to load."""
-    text = ""
-    if node_input and node_input.parts:
-        text = " ".join([p.text for p in node_input.parts if p.text])
-    
-    # Simple, fast keyword matching to decide between Emma and Mia
-    text_lower = text.lower()
-    if "mia" in text_lower:
-        selected_name = "Mia"
-    else:
-        # Default fallback to Emma
-        selected_name = "Emma"
+    logger.info("Node: load_child_profile | Child: Unknown | Status: STARTED")
+    try:
+        text = ""
+        if node_input and node_input.parts:
+            text = " ".join([p.text for p in node_input.parts if p.text])
         
-    profile = CHILD_PROFILES[selected_name.lower()]
-    
-    return Event(
-        output=profile.model_dump(),
-        state={
-            "child_profile": profile.model_dump(),
-            "original_query": text
-        }
-    )
+        # Simple, fast keyword matching to decide between Emma and Mia
+        text_lower = text.lower()
+        if "mia" in text_lower:
+            selected_name = "Mia"
+        else:
+            # Default fallback to Emma
+            selected_name = "Emma"
+            
+        profile = CHILD_PROFILES[selected_name.lower()]
+        
+        logger.info(f"Node: load_child_profile | Child: {selected_name} | Status: COMPLETED")
+        return Event(
+            output=profile.model_dump(),
+            state={
+                "child_profile": profile.model_dump(),
+                "original_query": text
+            }
+        )
+    except Exception as e:
+        logger.error(f"Node: load_child_profile | Child: Unknown | Status: FAILED | Error: {str(e)}")
+        raise
 
 
 def load_wardrobe_items(ctx: Context, node_input: dict) -> Event:
     """Step 2: Filter and load mock wardrobe items for the selected child."""
-    name = node_input["name"]
-    items = [item.model_dump() for item in MOCK_WARDROBE if item.owner.lower() == name.lower()]
-    return Event(
-        output=items,
-        state={"wardrobe_items": items}
-    )
+    name = node_input.get("name", "Unknown")
+    logger.info(f"Node: load_wardrobe_items | Child: {name} | Status: STARTED")
+    try:
+        items = [item.model_dump() for item in MOCK_WARDROBE if item.owner.lower() == name.lower()]
+        logger.info(f"Node: load_wardrobe_items | Child: {name} | Status: COMPLETED")
+        return Event(
+            output=items,
+            state={"wardrobe_items": items}
+        )
+    except Exception as e:
+        logger.error(f"Node: load_wardrobe_items | Child: {name} | Status: FAILED | Error: {str(e)}")
+        raise
 
 
-analyze_weather = LlmAgent(
+_analyze_weather = LlmAgent(
     name="analyze_weather",
     model=model,
     instruction="""You are a weather stylist assistant.
@@ -204,7 +219,19 @@ Determine:
 )
 
 
-analyze_school_day = LlmAgent(
+async def analyze_weather(ctx: Context, node_input: Any) -> AsyncGenerator[Event, None]:
+    child_name = ctx.state.get("child_profile", {}).get("name", "Unknown")
+    logger.info(f"Node: analyze_weather | Child: {child_name} | Status: STARTED")
+    try:
+        async for event in _analyze_weather.run(ctx=ctx, node_input=node_input):
+            yield event
+        logger.info(f"Node: analyze_weather | Child: {child_name} | Status: COMPLETED")
+    except Exception as e:
+        logger.error(f"Node: analyze_weather | Child: {child_name} | Status: FAILED | Error: {str(e)}")
+        raise
+
+
+_analyze_school_day = LlmAgent(
     name="analyze_school_day",
     model=model,
     instruction="""You are a school schedule stylist.
@@ -221,7 +248,19 @@ Determine:
 )
 
 
-recommend_outfits = LlmAgent(
+async def analyze_school_day(ctx: Context, node_input: Any) -> AsyncGenerator[Event, None]:
+    child_name = ctx.state.get("child_profile", {}).get("name", "Unknown")
+    logger.info(f"Node: analyze_school_day | Child: {child_name} | Status: STARTED")
+    try:
+        async for event in _analyze_school_day.run(ctx=ctx, node_input=node_input):
+            yield event
+        logger.info(f"Node: analyze_school_day | Child: {child_name} | Status: COMPLETED")
+    except Exception as e:
+        logger.error(f"Node: analyze_school_day | Child: {child_name} | Status: FAILED | Error: {str(e)}")
+        raise
+
+
+_recommend_outfits = LlmAgent(
     name="recommend_outfits",
     model=model,
     instruction="""You are the Smart School Stylist assistant.
@@ -254,15 +293,28 @@ Strict Constraints:
 )
 
 
+async def recommend_outfits(ctx: Context, node_input: Any) -> AsyncGenerator[Event, None]:
+    child_name = ctx.state.get("child_profile", {}).get("name", "Unknown")
+    logger.info(f"Node: recommend_outfits | Child: {child_name} | Status: STARTED")
+    try:
+        async for event in _recommend_outfits.run(ctx=ctx, node_input=node_input):
+            yield event
+        logger.info(f"Node: recommend_outfits | Child: {child_name} | Status: COMPLETED")
+    except Exception as e:
+        logger.error(f"Node: recommend_outfits | Child: {child_name} | Status: FAILED | Error: {str(e)}")
+        raise
+
+
 async def final_response(ctx: Context, node_input: dict) -> AsyncGenerator[Event, None]:
     """Step 6: Format recommendations nicely as user-facing markdown content."""
-    best_comfort = node_input.get("best_comfort", {})
-    best_style = node_input.get("best_style", {})
-    best_weather = node_input.get("best_weather", {})
-    
     child_name = ctx.state.get("child_profile", {}).get("name", "your child")
-    
-    md_text = f"""### 🌟 Outfit Recommendations for {child_name}
+    logger.info(f"Node: final_response | Child: {child_name} | Status: STARTED")
+    try:
+        best_comfort = node_input.get("best_comfort", {})
+        best_style = node_input.get("best_style", {})
+        best_weather = node_input.get("best_weather", {})
+        
+        md_text = f"""### 🌟 Outfit Recommendations for {child_name}
 
 Here are the personalized school outfit recommendations based on the wardrobe, weather, and schedule:
 
@@ -288,13 +340,17 @@ Here are the personalized school outfit recommendations based on the wardrobe, w
 * **Why:** {best_weather.get('reason')}
 """
 
-    yield Event(
-        content=types.Content(
-            role='model',
-            parts=[types.Part.from_text(text=md_text)]
+        yield Event(
+            content=types.Content(
+                role='model',
+                parts=[types.Part.from_text(text=md_text)]
+            )
         )
-    )
-    yield Event(output=md_text)
+        yield Event(output=md_text)
+        logger.info(f"Node: final_response | Child: {child_name} | Status: COMPLETED")
+    except Exception as e:
+        logger.error(f"Node: final_response | Child: {child_name} | Status: FAILED | Error: {str(e)}")
+        raise
 
 
 # ==========================================

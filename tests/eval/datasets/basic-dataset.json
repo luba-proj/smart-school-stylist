@@ -13,6 +13,132 @@
         "role": "user",
         "parts": [{"text": "What's the weather like in San Francisco?"}]
       }
+    },
+    {
+      "eval_case_id": "emma_rain_pe",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "What should Emma wear today? It is raining and she has PE/gym class."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_sunny_art",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has art class on a sunny, warm day. What should she wear?"}]
+      }
+    },
+    {
+      "eval_case_id": "emma_cold_picture_day",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "It's freezing cold outside and Emma has school picture day. What outfit do you recommend?"}]
+      }
+    },
+    {
+      "eval_case_id": "mia_warm_field_trip",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has a field trip today and the weather is warm and sunny. What's a good outfit?"}]
+      }
+    },
+    {
+      "eval_case_id": "emma_snow_outdoor_recess",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "It is snowing outside and Emma has outdoor recess today. Help her pick an outfit."}]
+      }
+    },
+    {
+      "eval_case_id": "emma_dislikes_dresses",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Suggest a comfortable outfit for Emma on a regular school day."}]
+      }
+    },
+    {
+      "eval_case_id": "emma_prefers_favorite_colors",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Suggest a stylish outfit for Emma. She wants to wear her favorite colors."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_prefers_favorite_colors",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Recommend a nice outfit for Mia featuring her favorite colors."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_rain_gear_required",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "It is pouring rain outside for Mia today. Help her choose an outfit including required rain gear."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_sneakers_required",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has PE class today and requires sneakers. What should she wear?"}]
+      }
+    },
+    {
+      "eval_case_id": "emma_warm_layers_required",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "It is a very cold, windy winter day. Suggest a warm outfit for Emma with layers."}]
+      }
+    },
+    {
+      "eval_case_id": "emma_gym_sunny",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Emma has gym class today and the weather is sunny and hot. What should she wear?"}]
+      }
+    },
+    {
+      "eval_case_id": "mia_art_cold",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has art class on a cold, chilly day. Suggest a suitable outfit."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_picture_day_sunny",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has school picture day on a beautiful sunny day. Help her pick a style."}]
+      }
+    },
+    {
+      "eval_case_id": "emma_field_trip_rain",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Emma is going on a field trip today but it is raining heavily. Recommend an outfit."}]
+      }
+    },
+    {
+      "eval_case_id": "mia_recess_cold",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Mia has outdoor recess on a freezing cold day. What should she wear?"}]
+      }
+    },
+    {
+      "eval_case_id": "mia_regular_comfortable",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Recommend a soft and comfortable outfit for Mia for a regular school day."}]
+      }
+    },
+    {
+      "eval_case_id": "emma_chilly_regular",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Emma has a regular school day, and it's quite chilly. Suggest a cozy outfit with a layer."}]
+      }
     }
   ]
 }

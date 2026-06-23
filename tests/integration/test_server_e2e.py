@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 import google.auth
 
 def has_credentials() -> bool:
+    if os.environ.get("GOOGLE_API_KEY") == "mock-api-key" or os.environ.get("GOOGLE_CLOUD_PROJECT") == "mock-project-id":
+        return False
     if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
         return True
     try:

@@ -17,11 +17,15 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from app.agent import root_agent
+
 import pytest
 import os
 import google.auth
 
 def has_credentials() -> bool:
+    if os.environ.get("GOOGLE_API_KEY") == "mock-api-key" or os.environ.get("GOOGLE_CLOUD_PROJECT") == "mock-project-id":
+        return False
     if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
         return True
     try:
