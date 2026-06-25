@@ -1,13 +1,24 @@
-# Smart School Stylist: Project Audit & Architecture Documentation
+# Smart School Stylist: Reference Architecture & Course Audit Documentation
 
-This document provides a comprehensive audit of the **Smart School Stylist** codebase, reviewing its multi-agent architecture, data schemas, rule engine, frontend implementation, security posture, API readiness, testing coverage, and path to production.
+This document provides a comprehensive architectural audit and design log for the **Smart School Stylist** codebase. It is structured to demonstrate how the project implements the advanced concepts, patterns, and development methodologies taught in **Google's 5-Day AI Agents: Intensive Vibe Coding Course**.
 
 ---
 
-## 1. Project Overview
+## 1. Project Overview & Course Alignment
 
-### Purpose of the Project
-Choosing clothes for school can be a daily friction point for parents and children. The **Smart School Stylist** is an AI-powered personal stylist assistant designed to solve this by recommending personalized school outfits for children. It analyzes the child's preferences and sensory dislikes, scans their available wardrobe, evaluates the current weather forecast, checks their school schedule (e.g., gym days, art class, field trips, or picture days), and incorporates feedback memory to generate tailored outfit options.
+### Purpose & Vibe Coding Philosophy
+Choosing clothes for school is a classic daily friction point for parents and children. The **Smart School Stylist** is an AI-powered personal styling concierge designed to resolve this friction. 
+
+Built during the **Intensive Vibe Coding Course**, this project embraces the "Vibe Coding" philosophy: **delivering premium, production-grade user experiences at breakneck speed by combining high-fidelity UI design with a robust, multi-agent backend architecture**. Rather than creating a minimal text-based chat interface, we developed a responsive, beautiful, glassmorphic dashboard that provides parents and children with a tangible, delightful, and interactive product experience.
+
+### Course Architectural Pillars Implemented
+1. **Multi-Agent Orchestration (ADK 2.0 & Local Mirroring)**: Deconstructing a single, high-complexity styling prompt into an orchestrated Directed Acyclic Graph (DAG) of specialized agents.
+2. **Programmatic Guardrails (Experienced Parent Validation)**: Using a strict, 477-line local Rule Engine to act as a deterministic validator over LLM-generated content, guaranteeing safety and activity compliance.
+3. **Stateful Feedback Memory Loop**: Moving beyond stateless LLM interactions by using a local state store to log child feedback (Likes, Dislikes, Temperature adjustments) and dynamically adjust item scores on subsequent runs.
+4. **The Quality Flywheel (Offline Evaluation)**: Developing a robust evaluation suite of 20 scenario-specific test cases and employing LLM-as-a-judge grading via `agents-cli eval` to continuously measure and optimize performance.
+5. **Structured Zero-PII Observability**: Instrumenting backend nodes with OpenTelemetry tracing while ensuring sensitive child profile details are omitted from logs.
+
+---
 
 ### Current Project Goals
 1. **Multi-Agent Orchestration**: Establish a multi-step agent pipeline that automates profile loading, wardrobe filtering, weather/schedule analysis, feedback learning, and recommendation generation.

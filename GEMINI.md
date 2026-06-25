@@ -1,8 +1,18 @@
-# Coding Agent Guide
+# Google's 5-Day AI Agents: Vibe Coding Developer & Agent Guide 🤖🎒
 
-## Prerequisites
+Welcome, developer! This guide outlines the development standards, agent patterns, and tools utilized in **Smart School Stylist**, serving as a reference manual for both human developers and agentic coding assistants (like Gemini and Antigravity) operating in this repository.
 
-Install the CLI (one-time):
+This project implements the core methodologies of the **Intensive Vibe Coding Course**:
+* **High-Aesthetic Prototyping**: We build premium, animated, responsive web UIs that wow users, not simple text terminals.
+* **Multi-Agent DAG Architectures**: We design workflows using Google ADK 2.0 with strict boundary validation (Pydantic & TypeScript).
+* **Deterministic Guardrails**: We couple creative LLM outputs with precise, programmatic Rule Engines.
+* **Continuous Quality Loops**: We run automated unit, integration, and offline LLM-as-a-judge evaluations to maintain high standards (the Quality Flywheel).
+
+---
+
+## 🛠️ Prerequisites & Setup
+
+Install the Google Agents CLI (one-time):
 ```bash
 uv tool install google-agents-cli
 ```

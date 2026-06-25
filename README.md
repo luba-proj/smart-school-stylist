@@ -8,6 +8,36 @@ Smart School Stylist is built under the **Concierge Agents** track for the **Goo
 
 ---
 
+## 🎓 Core Learnings & Methodologies from the Google AI Agents Course
+
+This project was built and refined using the core methodologies taught in the **Intensive Vibe Coding Course**. Below are the key architectural and design principles applied:
+
+### 1. The "Vibe Coding" Development Paradigm
+* **Aesthetics & Premium UX First**: High-velocity agentic development shouldn't produce minimal text boxes. The project features a premium, responsive glassmorphism UI with smooth transitions, theme-toggles, and interactive guided tours to create a memorable user experience.
+* **Rapid Prototyping with Local Sandboxes**: By mirroring the multi-agent DAG architecture in a local TypeScript engine on the frontend, we created a fully interactive, zero-latency simulation playground. This allowed us to iterate on complex styling logic and the UI *before* committing to cloud deployments and API budgets.
+
+### 2. Multi-Agent Orchestration & the DAG Pattern
+* **Deconstruction of the Monolith**: Instead of relying on a single, massive LLM prompt to digest child profiles, weather conditions, school rules, and wardrobes, the system splits the task into **5 specialized, isolated agent nodes** organized as a **Directed Acyclic Graph (DAG)** using **Google ADK 2.0**.
+* **Strict Boundary Schemas**: Each node in the DAG has dedicated input/output contracts defined by **Pydantic v2 schemas** (backend) and **TypeScript Types** (frontend). This ensures type-safety, prevents hallucinated data formats, and makes debugging individual agent nodes straightforward.
+
+### 3. Programmatic Guardrails (Experienced Parent Validation)
+* **LLM Creativity + Programmatic Safety**: While LLMs are excellent at styling coordination and writing encouraging reasoning, they are prone to compliance failures (e.g., suggesting sandals in freezing weather or dresses on PE gym days).
+* **The Rule-Engine Guardrail**: We implemented a strict **477-line programmatic Rule Engine** that intercepts LLM outputs. Every generated outfit must pass this deterministic "Experienced Parent" validation. If it fails, the system triggers a remediation loop to correct the outfit before presenting it to the user.
+
+### 4. Dynamic Feedback Loop & Localized State Memory
+* **Stateful Learning**: Traditional LLMs treat every prompt as a stateless interaction. The course emphasized the importance of localized state memory. 
+* **Feedback Memory Agent**: By persisting parent/child feedback (Likes, Dislikes, Too Warm, Too Cold) in a local memory store, the next execution of the agent pipeline dynamically scores wardrobe items. If a child dislikes a specific color or tag, the feedback agent automatically downgrades its preference score, adapting future styling recommendations in real time.
+
+### 5. The Quality Flywheel & Offline Evaluation
+* **From Vibes to Metrics**: To move beyond subjective "vibes" and ensure styling quality, we established an offline **Evaluation Suite** with **20 scenario-specific test cases** in `tests/eval/`.
+* **LLM-as-a-Judge**: Using `agents-cli eval`, we leverage Gemini as an impartial judge to score the agent's recommendations against standardized metrics: *Suitability*, *Rule Compliance*, *Personalization*, and *Sensory Comfort*. This builds a robust regression testing framework (the Quality Flywheel).
+
+### 6. Zero-PII Structured Observability
+* **Telemetry & Traceability**: The backend is instrumented with **OpenTelemetry** exporting directly to Google Cloud Trace. 
+* **PII Scrubbing**: Following the course's strict data privacy guidelines, telemetry logs only capture operational metadata and system state (`NO_CONTENT`), protecting sensitive child profile data from leaking into server logs.
+
+---
+
 ## ✨ Live Demo Features
 
 The project includes a **fully interactive React + TypeScript frontend** that demonstrates the multi-agent architecture with local mock data — no API keys or backend required.
