@@ -28,10 +28,13 @@ try:
     logger = logging_client.logger(__name__)
 except Exception:
     import logging
+
     logging.basicConfig(level=logging.INFO)
+
     class StandardLoggerFallback:
         def log_struct(self, data, severity="INFO"):
             logging.info(f"[{severity}] Struct log: {data}")
+
     logger = StandardLoggerFallback()
 
 allow_origins = (

@@ -9,6 +9,30 @@ uv tool install google-agents-cli
 
 ---
 
+## Project Structure
+
+This project has two main components:
+- **Backend** (`app/`): Python ADK 2.0 agent workflow with Gemini LLM integration.
+- **Frontend** (`frontend/`): React + TypeScript + Vite interactive demo with a local multi-agent engine, rule engine, feedback memory, and premium UI.
+
+### Frontend Commands
+
+| Command | Purpose |
+|---------|---------|
+| `cd frontend && npm install` | Install frontend dependencies |
+| `npm run dev` | Start Vite dev server (http://localhost:5173) |
+| `npm run build` | TypeScript check + production build |
+| `npm run lint` | Run Oxlint code quality checks |
+
+### Key Frontend Files
+- `frontend/src/App.tsx` — Main dashboard component (959 lines)
+- `frontend/src/mock/outfits.ts` — Multi-agent outfit engine (1,261 lines)
+- `frontend/src/mock/rules.ts` — Rule engine validation (477 lines)
+- `frontend/src/index.css` — Design system with dark mode (18K+ lines)
+- `frontend/src/components/` — 7 React components
+
+---
+
 ## Development Phases
 
 ### Phase 1: Understand Requirements

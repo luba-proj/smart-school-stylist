@@ -22,6 +22,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
+import google.auth
 import pytest
 import requests
 from requests.exceptions import RequestException
@@ -30,10 +31,12 @@ from requests.exceptions import RequestException
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import google.auth
 
 def has_credentials() -> bool:
-    if os.environ.get("GOOGLE_API_KEY") == "mock-api-key" or os.environ.get("GOOGLE_CLOUD_PROJECT") == "mock-project-id":
+    if (
+        os.environ.get("GOOGLE_API_KEY") == "mock-api-key"
+        or os.environ.get("GOOGLE_CLOUD_PROJECT") == "mock-project-id"
+    ):
         return False
     if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
         return True
@@ -43,12 +46,12 @@ def has_credentials() -> bool:
     except Exception:
         return False
 
+
 BASE_URL = "http://127.0.0.1:8000"
 STREAM_URL = BASE_URL + "/run_sse"
 FEEDBACK_URL = BASE_URL + "/feedback"
 
 HEADERS = {"Content-Type": "application/json"}
-
 
 
 def log_output(pipe: Any, log_func: Any) -> None:
@@ -126,7 +129,9 @@ def server_fixture(request: Any) -> Iterator[subprocess.Popen[str]]:
     yield server_process
 
 
-@pytest.mark.skipif(not has_credentials(), reason="No Google Cloud credentials or API Key available")
+@pytest.mark.skipif(
+    not has_credentials(), reason="No Google Cloud credentials or API Key available"
+)
 def test_chat_stream(server_fixture: subprocess.Popen[str]) -> None:
     """Test the chat stream functionality."""
     logger.info("Starting chat stream test")
@@ -188,7 +193,9 @@ def test_chat_stream(server_fixture: subprocess.Popen[str]) -> None:
     assert has_text_content, "Expected at least one event with text content"
 
 
-@pytest.mark.skipif(not has_credentials(), reason="No Google Cloud credentials or API Key available")
+@pytest.mark.skipif(
+    not has_credentials(), reason="No Google Cloud credentials or API Key available"
+)
 def test_chat_stream_error_handling(server_fixture: subprocess.Popen[str]) -> None:
     """Test the chat stream error handling."""
     logger.info("Starting chat stream error handling test")
