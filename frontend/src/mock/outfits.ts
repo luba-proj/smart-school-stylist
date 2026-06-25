@@ -1,6 +1,8 @@
 import type { Child, WeatherCondition, SchoolContext, WardrobeItem, Outfit, ChildFeedbackMemory } from '../types';
 import { emmaWardrobe, miaWardrobe } from './wardrobe';
 import { validateOutfit } from './rules';
+import * as skills from './skills';
+
 
 interface OutfitCombination {
   top: WardrobeItem | null;
@@ -68,20 +70,29 @@ function runWardrobeAgent(child: Child): {
   items: WardrobeItem[];
   logs: string[];
 } {
-  const wardrobe = child.id === 'emma' ? emmaWardrobe : miaWardrobe;
   const logs: string[] = [];
   
-  logs.push(`[Wardrobe Agent] Retrieved ${wardrobe.length} items from ${child.name}'s digital wardrobe.`);
+  // Profile Agent Skill: loadChildProfile
+  const profile = skills.loadChildProfile(child);
 
-  // Filter out items triggering sensory dislikes (case-insensitive check)
-  const sensorySafeItems = wardrobe.filter(item => {
+  // Wardrobe Agent Skill: retrieveWardrobeItems
+  const wardrobe = skills.retrieveWardrobeItems(profile);
+  logs.push(`[Wardrobe Agent] Retrieved ${wardrobe.length} items from ${profile.name}'s digital wardrobe.`);
+
+  // Profile Agent Skill: getSensoryPreferences
+  const sensoryDislikes = skills.getSensoryPreferences(profile);
+
+  // Wardrobe Agent Skill: filterSensoryUnsafeItems
+  const sensorySafeItems = skills.filterSensoryUnsafeItems(wardrobe, sensoryDislikes);
+  
+  // Log filtered items to match exactly
+  wardrobe.forEach(item => {
     const isUnsafe = item.tags.some(tag => 
-      child.sensoryDislikes.some(dislike => tag.toLowerCase() === dislike.toLowerCase())
+      sensoryDislikes.some(dislike => tag.toLowerCase() === dislike.toLowerCase())
     );
     if (isUnsafe) {
-      logs.push(`[Wardrobe Agent] Filtered out "${item.name}" due to sensory dislikes (${child.sensoryDislikes.join(', ')}).`);
+      logs.push(`[Wardrobe Agent] Filtered out "${item.name}" due to sensory dislikes (${sensoryDislikes.join(', ')}).`);
     }
-    return !isUnsafe;
   });
 
   logs.push(`[Wardrobe Agent] Passed ${sensorySafeItems.length} sensory-safe items to the Weather Agent.`);
@@ -106,7 +117,9 @@ function runWeatherAgent(
   const temp = weather.temp;
   const condition = weather.condition;
   
-  logs.push(`[Weather Agent] Analyzing forecast: ${temp}°F, condition: ${condition}.`);
+  // Weather Agent Skill: analyzeWeather
+  const analysisLog = skills.analyzeWeather(weather);
+  logs.push(`[Weather Agent] ${analysisLog}`);
 
   const isRainy = condition === 'rainy';
   const isSnowy = condition === 'snowy';
@@ -114,24 +127,17 @@ function runWeatherAgent(
   const isSunnyWarm = temp >= 70;
   const isChillyWindy = ((temp >= 40 && temp < 70) || (condition === 'windy' && temp < 70)) && !isRainy && !isSnowy && !isFreezing;
 
-  let outerwearRequired = false;
-  let heavyOuterwearRequired = false;
-  let warmAccessoryRequired = false;
+  // Weather Agent Skill: determineLayeringNeeds
+  const { outerwearRequired, heavyOuterwearRequired, warmAccessoryRequired } = skills.determineLayeringNeeds(temp, condition);
 
-  // Determine outerwear and accessory requirements based on Temperature and Condition
+  // Keep original logging exactly intact for UI diagnostics
   if (isRainy) {
-    outerwearRequired = true;
     logs.push(`[Weather Agent] Rainy forecast: Rain coat required.`);
   } else if (isSnowy || isFreezing) {
-    outerwearRequired = true;
-    heavyOuterwearRequired = true;
-    warmAccessoryRequired = true;
     logs.push(`[Weather Agent] Snowy/Freezing forecast: Heavy winter coat and warm accessories required.`);
   } else if (isChillyWindy) {
-    outerwearRequired = true;
     logs.push(`[Weather Agent] Chilly/Windy forecast: Sweatshirt required.`);
   } else {
-    outerwearRequired = false;
     logs.push(`[Weather Agent] Sunny & Warm: Outerwear not required.`);
   }
 
@@ -189,18 +195,40 @@ function runWeatherAgent(
       const isShorts = hasTag(item, 'shorts');
       const isLongPants = (hasTag(item, 'leggings') || hasTag(item, 'jeans') || hasTag(item, 'pants')) && !isDress && !isSkirt && !isShorts;
 
+      const isPE = school.isPEDay || school.activity.toLowerCase().includes('pe') || school.activity.toLowerCase().includes('gym') || school.activity.toLowerCase().includes('sports') || school.activity.toLowerCase().includes('soccer');
+      const isFieldTrip = school.activity.toLowerCase().includes('field');
+      const isPictureDay = school.activity.toLowerCase().includes('picture') || school.activity.toLowerCase().includes('photo');
+      const isPEOrTrip = isPE || isFieldTrip;
+
       if (isSunnyWarm) {
         if (isDress) {
-          return hasTag(item, 'short-sleeve');
+          return !hasTag(item, 'long-sleeve');
         }
-        return isShorts || isSkirt; // Shorts or skirts allowed!
+        if (isPEOrTrip) {
+          // PE/Field Trip: Leggings/sweatpants (PE-friendly bottoms) are allowed and jeans/skirts are forbidden.
+          const isJeans = hasTag(item, 'jeans') || item.name.toLowerCase().includes('jeans') || item.name.toLowerCase().includes('denim');
+          return hasTag(item, 'PE-friendly') && !isJeans && !isSkirt;
+        }
+        if (isPictureDay) {
+          // Picture Day: Skirt or neat long pants allowed (no sports pants).
+          const isSporty = hasTag(item, 'PE-friendly') && !isSkirt;
+          return (isSkirt || isLongPants) && !isSporty;
+        }
+        // Regular Day and Art: Shorts mandatory.
+        return isShorts;
       }
       if (isChillyWindy) {
-        return isLongPants; // Only long pants allowed!
+        if (isPictureDay) {
+          return isDress || isLongPants || isSkirt;
+        }
+        return isDress || isLongPants; // Dress or long pants allowed!
       }
       if (isRainy) {
         if (isDress) {
           return hasTag(item, 'long-sleeve');
+        }
+        if (isPictureDay) {
+          return isLongPants || isSkirt;
         }
         return isLongPants;
       }
@@ -213,6 +241,9 @@ function runWeatherAgent(
     if (item.category === 'shoes') {
       const isPE = school.isPEDay || school.activity.toLowerCase().includes('pe') || school.activity.toLowerCase().includes('gym') || school.activity.toLowerCase().includes('sports') || school.activity.toLowerCase().includes('soccer');
       const isFieldTrip = school.activity.toLowerCase().includes('field');
+      const isArt = school.activity.toLowerCase().includes('art');
+      const isPictureDay = school.activity.toLowerCase().includes('picture') || school.activity.toLowerCase().includes('photo');
+      const isPEOrTrip = isPE || isFieldTrip;
 
       const isSandal = hasTag(item, 'sandals') || item.name.toLowerCase().includes('sandal');
       const isSneaker = hasTag(item, 'Sneakers') || hasTag(item, 'sneakers') || item.name.toLowerCase().includes('running');
@@ -222,6 +253,12 @@ function runWeatherAgent(
 
       if (isSunnyWarm) {
         if (isWinterBoot || isRainBoot) return false;
+        if (isPEOrTrip || isArt) {
+          return isSneaker;
+        }
+        if (isPictureDay) {
+          return isBalletFlat || isSandal;
+        }
         const hasSandal = items.some(i => i.category === 'shoes' && (hasTag(i, 'sandals') || i.name.toLowerCase().includes('sandal')));
         if (hasSandal) {
           return isSandal;
@@ -229,16 +266,31 @@ function runWeatherAgent(
         return isBalletFlat || isSneaker;
       }
       if (isChillyWindy) {
+        if (isPEOrTrip || isArt) {
+          return isSneaker;
+        }
+        if (isPictureDay) {
+          return isBalletFlat;
+        }
         return !isSandal && !isWinterBoot && !isRainBoot; // Closed shoes (no sandals/winter/rain boots)
       }
       if (isRainy) {
-        if (isPE || isFieldTrip) {
+        if (isPEOrTrip || isArt) {
           return isSneaker;
+        }
+        if (isPictureDay) {
+          return isBalletFlat || isRainBoot || isWinterBoot;
         }
         return isRainBoot || isWinterBoot;
       }
       if (isSnowy || isFreezing) {
-        if (isRainy) {
+        if (isPEOrTrip || isArt) {
+          return isSneaker;
+        }
+        if (isPictureDay) {
+          return isBalletFlat || isWinterBoot || isRainBoot;
+        }
+        if (isRainy || isSnowy) {
           return isRainBoot || isWinterBoot;
         }
         return isSneaker || isWinterBoot || isRainBoot;
@@ -267,15 +319,15 @@ function runSchoolContextAgent(items: WardrobeItem[], school: SchoolContext): {
   logs: string[];
 } {
   const logs: string[] = [];
-  logs.push(`[School Agent] Evaluating school activity: "${school.activity}" (PE Day: ${school.isPEDay}).`);
+  
+  // School Context Agent Skill: detectSchoolActivity
+  const activityName = skills.detectSchoolActivity(school);
+  logs.push(`[School Agent] Evaluating school activity: "${activityName}" (PE Day: ${school.isPEDay}).`);
 
   let filtered = [...items];
 
-  const activity = school.activity.toLowerCase();
-  const isPE = school.isPEDay || activity.includes('pe') || activity.includes('gym') || activity.includes('sports') || activity.includes('soccer');
-  const isArt = activity.includes('art');
-  const isFieldTrip = activity.includes('field');
-  const isPictureDay = activity.includes('picture') || activity.includes('photo');
+  // School Context Agent Skill: getActivityType
+  const { isPE, isArt, isFieldTrip, isPictureDay } = skills.getActivityType(school);
 
   if (isPE || isFieldTrip) {
     logs.push(`[School Agent] PE/Gym/Field Trip Day: Restricting clothing to sporty and shoes to running sneakers.`);
@@ -309,22 +361,13 @@ function runSchoolContextAgent(items: WardrobeItem[], school: SchoolContext): {
       return true;
     });
   } else if (isPictureDay) {
-    logs.push(`[School Agent] Picture Day: Nice dress or nice blouse + skirt. Flats/sandals only. No sportswear/sneakers.`);
+    logs.push(`[School Agent] Picture Day: Preferring nice/elegant outfits. Sneakers are not mandatory.`);
+    // Do not filter out pants, boots, or sneakers because weather might require them!
+    // We keep all weather-appropriate choices and prioritize elegance during scoring.
     filtered = filtered.filter(item => {
-      const isSporty = hasTag(item, 'PE-friendly') || hasTag(item, 'sporty') || hasTag(item, 'active') || hasTag(item, 'shorts');
-      const isRunning = (hasTag(item, 'Sneakers') || hasTag(item, 'running')) && item.category === 'shoes';
-      
-      if (isSporty || isRunning) return false;
-      
-      if (item.category === 'shoes') {
-        return hasTag(item, 'ballet-flats') || hasTag(item, 'flats') || hasTag(item, 'sandals') || item.name.toLowerCase().includes('sandal');
-      }
-      if (item.category === 'top') {
-        return hasTag(item, 'formal') || hasTag(item, 'neat') || hasTag(item, 'lace') || item.name.toLowerCase().includes('polo') || item.name.toLowerCase().includes('blouse') || item.name.toLowerCase().includes('tie-knot');
-      }
-      if (item.category === 'bottom') {
-        return hasTag(item, 'skirt') || hasTag(item, 'dress');
-      }
+      // Avoid sporty active shorts or PE-only tees if we have elegant options, but don't strictly filter if we don't have others.
+      const isActiveShorts = hasTag(item, 'PE-friendly') && hasTag(item, 'shorts') && item.category === 'bottom';
+      if (isActiveShorts) return false;
       return true;
     });
   }
@@ -345,58 +388,31 @@ function runFeedbackMemoryAgent(
   logs: string[];
 } {
   const logs: string[] = [];
-  const preferenceScores: Record<string, number> = {};
+  
+  // Feedback Memory Agent Skill: loadFeedbackMemory
+  const mem = skills.loadFeedbackMemory(memory);
 
-  if (!memory) {
+  if (!mem) {
     logs.push(`[Feedback Agent] No historical feedback memory found. Applying base favorites weights.`);
-    items.forEach(item => {
-      preferenceScores[item.id] = item.isFavorite ? 5 : 0;
-    });
+    // Feedback Memory Agent Skill: calculatePreferenceScores
+    const preferenceScores = skills.calculatePreferenceScores(items, undefined);
     return { items, preferenceScores, logs };
   }
 
-  logs.push(`[Feedback Agent] Loading memory profile (liked colors: ${memory.likedColors.length}, liked tags: ${memory.likedTags.length}, warmth offset: ${memory.warmthOffset}).`);
+  logs.push(`[Feedback Agent] Loading memory profile (liked colors: ${mem.likedColors.length}, liked tags: ${mem.likedTags.length}, warmth offset: ${mem.warmthOffset}).`);
 
+  // Feedback Memory Agent Skill: calculatePreferenceScores
+  const preferenceScores = skills.calculatePreferenceScores(items, mem);
+
+  // Expose detailed logs exactly as before for UI alignment
   items.forEach(item => {
-    let score = 0;
-
-    if (item.isFavorite) {
-      score += 5;
-    }
-
-    if (memory.likedColors.includes(item.color)) {
-      score += 15;
+    if (mem.likedColors.includes(item.color)) {
       logs.push(`[Feedback Agent] Color Preference: +15 score for "${item.name}" (liked color: ${item.color}).`);
     }
-
-    const matchedTags = item.tags.filter(tag => memory.likedTags.includes(tag));
+    const matchedTags = item.tags.filter(tag => mem.likedTags.includes(tag));
     if (matchedTags.length > 0) {
-      score += matchedTags.length * 4;
       logs.push(`[Feedback Agent] Tag Preference: +${matchedTags.length * 4} score for "${item.name}" (matched: ${matchedTags.join(', ')}).`);
     }
-
-    if (memory.warmthOffset !== 0) {
-      if (memory.warmthOffset > 0) {
-        if (item.warmRating >= 3) {
-          const bonus = memory.warmthOffset * 6;
-          score += bonus;
-        } else if (item.warmRating <= 1) {
-          const penalty = memory.warmthOffset * 5;
-          score -= penalty;
-        }
-      } else if (memory.warmthOffset < 0) {
-        const absOffset = Math.abs(memory.warmthOffset);
-        if (item.warmRating <= 2) {
-          const bonus = absOffset * 6;
-          score += bonus;
-        } else if (item.warmRating >= 3) {
-          const penalty = absOffset * 5;
-          score -= penalty;
-        }
-      }
-    }
-
-    preferenceScores[item.id] = score;
   });
 
   logs.push(`[Feedback Agent] Preference scores computed successfully.`);
@@ -407,6 +423,33 @@ function runFeedbackMemoryAgent(
 // 5. STYLIST AGENT (OPTIMIZATION, SCORING & ASSEMBLY)
 // =========================================================================
 function scoreOutfitCombination(
+  top: WardrobeItem | null,
+  bottom: WardrobeItem,
+  shoes: WardrobeItem,
+  outerwear: WardrobeItem | null,
+  accessory: WardrobeItem | null,
+  child: Child,
+  school: SchoolContext,
+  preferenceScores: Record<string, number>,
+  memory: ChildFeedbackMemory | undefined,
+  temp: number
+): number {
+  return skills.scoreOutfit(
+    top,
+    bottom,
+    shoes,
+    outerwear,
+    accessory,
+    child,
+    school,
+    preferenceScores,
+    memory,
+    temp,
+    scoreOutfitCombinationInternal
+  );
+}
+
+function scoreOutfitCombinationInternal(
   top: WardrobeItem | null,
   bottom: WardrobeItem,
   shoes: WardrobeItem,
@@ -801,18 +844,21 @@ export function generateOutfitRecommendation(
   // 4. Run Feedback Memory Agent
   const feedbackResult = runFeedbackMemoryAgent(schoolResult.items, memory);
   
-  // 5. Run Stylist Agent
-  const combinations = runStylistAgent(
+  // 5. Run Stylist Agent (using Stylist Agent Skills: buildCandidateOutfits, rankRecommendations)
+  const unsortedCombinations = skills.buildCandidateOutfits(
     feedbackResult.items,
-    feedbackResult.preferenceScores,
     weather,
     school,
-    memory,
     child,
     weatherResult.outerwearRequired,
     weatherResult.warmAccessoryRequired,
-    false
+    false,
+    runStylistAgent,
+    feedbackResult.preferenceScores,
+    memory
   );
+
+  const combinations = skills.rankRecommendations(unsortedCombinations);
 
   let selectedCombo = null;
   let currentIteration = iteration;
@@ -820,7 +866,9 @@ export function generateOutfitRecommendation(
   // Experienced Parent Validation Loop: Find first combination that passes
   for (let offset = 0; offset < combinations.length; offset++) {
     const combo = combinations[(currentIteration + offset) % combinations.length];
-    if (passesRealParentValidation(combo, child, weather, school).passes) {
+    // Stylist Agent Skill: performParentValidation
+    const validation = skills.performParentValidation(combo, child, weather, school, passesRealParentValidation);
+    if (validation.passes) {
       selectedCombo = combo;
       break;
     }
@@ -829,7 +877,9 @@ export function generateOutfitRecommendation(
   // Fallback search
   if (!selectedCombo) {
     for (let i = 0; i < combinations.length; i++) {
-      if (passesRealParentValidation(combinations[i], child, weather, school).passes) {
+      // Stylist Agent Skill: performParentValidation
+      const validation = skills.performParentValidation(combinations[i], child, weather, school, passesRealParentValidation);
+      if (validation.passes) {
         selectedCombo = combinations[i];
         break;
       }
@@ -885,21 +935,27 @@ export function generatePreCuratedOutfit(
   const schoolResult = runSchoolContextAgent(weatherResult.items, school);
   const feedbackResult = runFeedbackMemoryAgent(schoolResult.items, undefined);
   
-  const combinations = runStylistAgent(
+  // Stylist Agent Skill: buildCandidateOutfits & rankRecommendations
+  const unsortedCombinations = skills.buildCandidateOutfits(
     feedbackResult.items,
-    feedbackResult.preferenceScores,
     weather,
     school,
-    undefined,
     child,
     weatherResult.outerwearRequired,
     weatherResult.warmAccessoryRequired,
-    type === 'comfort'
+    type === 'comfort',
+    runStylistAgent,
+    feedbackResult.preferenceScores,
+    undefined
   );
+
+  const combinations = skills.rankRecommendations(unsortedCombinations);
 
   let selectedCombo = null;
   for (let i = 0; i < combinations.length; i++) {
-    if (passesRealParentValidation(combinations[i], child, weather, school).passes) {
+    // Stylist Agent Skill: performParentValidation
+    const validation = skills.performParentValidation(combinations[i], child, weather, school, passesRealParentValidation);
+    if (validation.passes) {
       selectedCombo = combinations[i];
       break;
     }
@@ -1090,8 +1146,8 @@ function calculateSuitability(
 
   // 5. Sunny & Warm Day Rules
   if (isSunnyWarm) {
-    const isShortSleeve = isDress ? hasTag(bottom, 'short-sleeve') : (top && hasTag(top, 'short-sleeve'));
-    const isShortsOrSkirt = !isDress && (isShorts || isSkirt);
+    const isShortSleeve = isDress ? !hasTag(bottom, 'long-sleeve') : (top && hasTag(top, 'short-sleeve'));
+    const isShortsOnly = !isDress && isShorts;
     const noOuterwear = !outerwear;
     const noBoots = !isWinterBoot && !isRainBoot;
     
@@ -1099,13 +1155,13 @@ function calculateSuitability(
     const hasSandal = wardrobe.some(i => i.category === 'shoes' && (hasTag(i, 'sandals') || i.name.toLowerCase().includes('sandal')));
     const shoesOk = isSandal || (!hasSandal && (isBalletFlat || isSneaker));
 
-    if (isShortSleeve && (isDress || isShortsOrSkirt) && noOuterwear && noBoots && shoesOk) {
+    if (isShortSleeve && (isDress || isShortsOnly) && noOuterwear && noBoots && shoesOk) {
       score += 10;
-      reasonParts.push(`perfectly styled for sunny ${temp}°F weather with short sleeves, shorts/skirt, and sandals`);
+      reasonParts.push(`perfectly styled for sunny ${temp}°F weather with short sleeves, shorts, and sandals`);
     } else {
       score -= 30;
       if (!isShortSleeve) reasonParts.push(`Warm: Short-sleeve tops/dresses are required`);
-      if (!isDress && !isShorts && !isSkirt) reasonParts.push(`Warm: Shorts or a skirt are required (no long pants)`);
+      if (!isDress && !isShorts) reasonParts.push(`Warm: Shorts are required (no long pants or skirts)`);
       if (outerwear) reasonParts.push(`Warm: Outerwear is strictly forbidden`);
       if (isWinterBoot || isRainBoot) reasonParts.push(`Warm: Boots are strictly forbidden`);
       if (hasSandal && !isSandal) reasonParts.push(`Warm: Sandals are required when available`);
@@ -1115,20 +1171,21 @@ function calculateSuitability(
   // 6. Chilly & Windy Day Rules
   if (isChillyWindy) {
     const isSweatshirt = outerwear && (hasTag(outerwear, 'sweater-hoodie') || hasTag(outerwear, 'cardigan') || hasTag(outerwear, 'fleece') || outerwear.name.toLowerCase().includes('hoodie') || outerwear.name.toLowerCase().includes('sweatshirt'));
-    const isLongSleeve = (isDress && hasTag(bottom, 'long-sleeve')) || (top && hasTag(top, 'long-sleeve'));
+    const isLongSleeve = (isDress && !hasTag(bottom, 'long-sleeve')) || (top && hasTag(top, 'long-sleeve'));
     const wardrobe = child.id === 'emma' ? emmaWardrobe : miaWardrobe;
     const hasLongSleeveInWardrobe = wardrobe.some(item => (item.category === 'top' || item.category === 'dress') && hasTag(item, 'long-sleeve'));
     const topOk = isLongSleeve || (!hasLongSleeveInWardrobe && top && hasTag(top, 'short-sleeve'));
     const shoesOk = !isSandal && !isWinterBoot && !isRainBoot;
+    const bottomOk = isDress || isLongPants;
 
-    if (isSweatshirt && topOk && isLongPants && shoesOk) {
+    if (isSweatshirt && topOk && bottomOk && shoesOk) {
       score += 5;
-      reasonParts.push(`comfortably layered for chilly ${temp}°F weather with a sweatshirt, long pants, and closed shoes`);
+      reasonParts.push(`comfortably layered for chilly ${temp}°F weather with a sweatshirt, long pants/dress, and closed shoes`);
     } else {
       score -= 30;
       if (!isSweatshirt) reasonParts.push(`Chilly: A sweatshirt, hoodie, or cardigan is mandatory`);
       if (!topOk) reasonParts.push(`Chilly: A long-sleeve shirt/dress is required when available`);
-      if (!isLongPants) reasonParts.push(`Chilly: Long pants are mandatory`);
+      if (!bottomOk) reasonParts.push(`Chilly: Long pants are mandatory (unless wearing a dress)`);
       if (isSandal) reasonParts.push(`Chilly: Sandals are forbidden`);
       if (isWinterBoot) reasonParts.push(`Chilly: Heavy winter boots are unnecessary`);
     }
@@ -1154,21 +1211,37 @@ function calculateSuitability(
 
   // 8. Picture Day Rules
   if (school.activity.toLowerCase().includes('picture')) {
-    const isApprovedOutfit = isDress || (top && isSkirt);
-    const isSporty = (top && (hasTag(top, 'PE-friendly') || hasTag(top, 'sporty') || hasTag(top, 'active'))) ||
-                     (bottom && (hasTag(bottom, 'PE-friendly') || hasTag(bottom, 'sporty') || hasTag(bottom, 'active') || isShorts));
-    const isRunning = isSneaker;
-    const isNiceShoes = isBalletFlat || isSandal;
-
-    if (isApprovedOutfit && !isSporty && !isRunning && isNiceShoes) {
-      score += 10;
-      reasonParts.push(`beautifully dressed in a nice dress/skirt outfit with flats/sandals for school photos`);
+    const isCold = isChillyWindy || isRainy || isSnowy || isColdSnowyOrFreezing;
+    
+    if (isCold) {
+      // In cold weather, nice long pants or a nice dress are perfect. Boots/closed shoes are allowed.
+      const isApprovedOutfit = isDress || (top && isLongPants);
+      if (isApprovedOutfit && !isSandal) {
+        score += 10;
+        reasonParts.push(`warmly and neatly dressed in a nice winter-ready outfit for school photos`);
+      } else {
+        score -= 30;
+        if (!isApprovedOutfit) reasonParts.push(`Picture Day: A nice dress or neat shirt + long pants is recommended in cold weather`);
+        if (isSandal) reasonParts.push(`Picture Day: Sandals are not suitable for cold weather school photos`);
+      }
     } else {
-      score -= 30;
-      if (!isApprovedOutfit) reasonParts.push(`Picture Day: A nice dress or nice blouse + skirt is required`);
-      if (!isNiceShoes) reasonParts.push(`Picture Day: Nice ballet flats or sandals are required`);
-      if (isSporty) reasonParts.push(`Picture Day: Sportswear is strictly forbidden`);
-      if (isRunning) reasonParts.push(`Picture Day: Running shoes/sneakers are strictly forbidden`);
+      // In warm weather, a nice dress or blouse + skirt is required, with flats or sandals.
+      const isApprovedOutfit = isDress || (top && isSkirt);
+      const isSporty = (top && (hasTag(top, 'PE-friendly') || hasTag(top, 'sporty') || hasTag(top, 'active'))) ||
+                       (bottom && (hasTag(bottom, 'PE-friendly') || hasTag(bottom, 'sporty') || hasTag(bottom, 'active') || isShorts));
+      const isRunning = isSneaker;
+      const isNiceShoes = isBalletFlat || isSandal;
+
+      if (isApprovedOutfit && !isSporty && !isRunning && isNiceShoes) {
+        score += 10;
+        reasonParts.push(`beautifully dressed in a nice dress/skirt outfit with flats/sandals for school photos`);
+      } else {
+        score -= 30;
+        if (!isApprovedOutfit) reasonParts.push(`Picture Day: A nice dress or nice blouse + skirt is required`);
+        if (!isNiceShoes) reasonParts.push(`Picture Day: Nice ballet flats or sandals are required`);
+        if (isSporty) reasonParts.push(`Picture Day: Sportswear is strictly forbidden`);
+        if (isRunning) reasonParts.push(`Picture Day: Running shoes/sneakers are strictly forbidden`);
+      }
     }
   }
 
