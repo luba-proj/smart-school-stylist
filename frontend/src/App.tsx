@@ -14,6 +14,7 @@ import { SchoolContextCard } from './components/SchoolContextCard';
 import { OutfitRecommendation, WhyThisOutfitCard, AgentWorkflowCard } from './components/OutfitRecommendation';
 import { FeedbackSection } from './components/FeedbackSection';
 import { WardrobeGallery } from './components/WardrobeGallery';
+import { GuidedDemo } from './components/GuidedDemo';
 
 export default function App() {
   // 1. Dashboard State
@@ -90,9 +91,9 @@ export default function App() {
     currentMemory.warmthOffset !== 0
   ));
 
-  // 2. Guided Walkthrough Tour State
-  const [tourActive, setTourActive] = useState<boolean>(false);
-  const [tourStep, setTourStep] = useState<number>(1);
+  // 2. Guided Demo Mode State
+  const [demoActive, setDemoActive] = useState<boolean>(false);
+  const [demoHighlightIds, setDemoHighlightIds] = useState<string[]>([]);
 
   const currentWeather: WeatherCondition = mockWeatherScenarios[weatherKey];
   const currentSchool: SchoolContext = mockSchoolScenarios[schoolKey];
@@ -316,83 +317,15 @@ export default function App() {
     }, 300);
   };
 
-  // Tour Step Handlers
-  const startTour = () => {
-    setTourActive(true);
-    setTourStep(1);
-    setActiveTab('recommendation');
-    setSelectedChild(mockChildren[0]); // Start with Emma
-    setWeatherKey('sunny');
-    setSchoolKey('regular');
-  };
+  // Demo mode helper: check if a given element ID should be highlighted
+  const isDemoHighlighted = (id: string) => demoActive && demoHighlightIds.includes(id);
 
-  const nextTourStep = () => {
-    const nextStep = tourStep + 1;
-    setTourStep(nextStep);
-
-    // Context mutations to guide the user visually during the tour
-    if (nextStep === 3) {
-      // Show PE day and Windy weather to show adaptation
-      setSchoolKey('pe');
-      setWeatherKey('windy');
-    } else if (nextStep === 6) {
-      // Automatically switch to wardrobe tab to show gallery
-      setActiveTab('wardrobe');
+  // Start demo via the GuidedDemo component's exposed callback
+  const startDemo = () => {
+    if ((window as any).__startGuidedDemo) {
+      (window as any).__startGuidedDemo();
     }
   };
-
-  const prevTourStep = () => {
-    const prevStep = tourStep - 1;
-    setTourStep(prevStep);
-    if (prevStep === 2) {
-      setSchoolKey('regular');
-      setWeatherKey('sunny');
-    } else if (prevStep === 5) {
-      setActiveTab('recommendation');
-    }
-  };
-
-  const endTour = () => {
-    setTourActive(false);
-    setTourStep(1);
-    setActiveTab('recommendation');
-  };
-
-  // Tour Steps Configuration
-  const tourStepsData = [
-    {
-      title: '👋 Welcome to Smart School Stylist!',
-      caption: 'This guided tour shows how our AI styling agent, Aura, curates comfortable school outfits for Emma (11) and Mia (7) while keeping parents in control.',
-      highlightId: ''
-    },
-    {
-      title: '👧 Child Styling Profiles',
-      caption: 'We start with child profiles. Emma and Mia have unique tastes (e.g. unicorns vs soccer) and strict sensory dislikes (like scratchy tags or squeezing waistbands). Aura actively avoids these items to ensure a sensory-safe morning!',
-      highlightId: 'child-selector-card'
-    },
-    {
-      title: '🌦️ Weather & School Contexts',
-      caption: 'Aura checks weather forecasts and school activity constraints. Notice we switched to a "Chilly & Windy" day with "PE Activity". Aura knows sneakers are mandatory for gym, and warm layers are required for the wind!',
-      highlightId: 'weather-card' // will highlight weather and school card
-    },
-    {
-      title: '👗 Dynamic Outfit Recommendation',
-      caption: 'Applying these rules, Aura generated today\'s outfit! It picked Emma\'s sporty tee, purple leggings (PE-approved, no tags), sneakers, and added her furry unicorn jacket for warmth, avoiding any stiff denim she dislikes.',
-      highlightId: 'outfit-recommendation-card'
-    },
-    {
-      title: '💬 Interactive Feedback Loop',
-      caption: 'Parents and children can rate the outfit. Clicks on Like, Dislike, Too Warm, or Too Chilly are logged instantly, allowing the stylist engine to learn and adjust tomorrow\'s selection.',
-      highlightId: 'feedback-section-card'
-    },
-    {
-      title: '🚪 Wardrobe Gallery & Closet',
-      caption: 'Finally, parents can browse their child\'s entire digital wardrobe. We\'ve opened the Wardrobe Gallery so you can see all available clothes, including tags, sensory details, and types. Feel free to explore!',
-      highlightId: 'wardrobe-gallery-card'
-    }
-  ];
-
-  const currentTourStepData = tourStepsData[tourStep - 1];
 
   return (
     <div className="app-container">
@@ -417,18 +350,23 @@ export default function App() {
         </div>
 
         <div className="header-actions">
-          {/* Tour Button */}
+          {/* Demo Button */}
           <button 
             className="btn btn-secondary" 
-            onClick={startTour}
+            onClick={startDemo}
+            disabled={demoActive}
             style={{ 
-              background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)', 
+              background: demoActive
+                ? 'linear-gradient(135deg, #6b21a8 0%, #581c87 100%)'
+                : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)', 
               color: 'white',
               border: 'none',
-              borderRadius: '2rem'
+              borderRadius: '2rem',
+              opacity: demoActive ? 0.6 : 1,
+              cursor: demoActive ? 'not-allowed' : 'pointer'
             }}
           >
-            ✨ Start Guided Demo
+            {demoActive ? '🎬 Demo Running...' : '✨ Start Guided Demo'}
           </button>
 
           {/* Theme Toggle */}
@@ -468,7 +406,7 @@ export default function App() {
         {/* Left Sidebar Column */}
         <div className="sidebar-column">
           {/* Children Profiles */}
-          <div className={`sidebar-item ${tourActive && currentTourStepData.highlightId === 'child-selector-card' ? 'tour-highlight' : ''}`}>
+          <div className={`sidebar-item ${isDemoHighlighted('child-selector-card') ? 'demo-highlight' : ''}`} id="child-selector-card">
             <ChildSelector 
               children={mockChildren}
               selectedChild={selectedChild}
@@ -477,7 +415,7 @@ export default function App() {
           </div>
 
           {/* Weather Widget */}
-          <div className={`sidebar-item ${tourActive && currentTourStepData.highlightId === 'weather-card' ? 'tour-highlight' : ''}`}>
+          <div className={`sidebar-item ${isDemoHighlighted('weather-card') ? 'demo-highlight' : ''}`} id="weather-card">
             <WeatherCard 
               weather={currentWeather}
               currentScenario={weatherKey}
@@ -486,7 +424,7 @@ export default function App() {
           </div>
 
           {/* School Context Widget */}
-          <div className={`sidebar-item ${tourActive && currentTourStepData.highlightId === 'weather-card' ? 'tour-highlight' : ''}`}>
+          <div className={`sidebar-item ${isDemoHighlighted('school-context-card') ? 'demo-highlight' : ''}`} id="school-context-card">
             <SchoolContextCard 
               school={currentSchool}
               currentScenario={schoolKey}
@@ -500,7 +438,7 @@ export default function App() {
           {activeTab === 'recommendation' ? (
             <>
               {/* Today's Recommendation (Clothing Grid Card) */}
-              <div className={`main-item ${tourActive && currentTourStepData.highlightId === 'outfit-recommendation-card' ? 'tour-highlight' : ''}`}>
+              <div className={`main-item ${isDemoHighlighted('outfit-recommendation-card') ? 'demo-highlight' : ''}`} id="outfit-recommendation-card">
                 <OutfitRecommendation 
                   outfit={validatedOutfit}
                   child={selectedChild}
@@ -542,30 +480,8 @@ export default function App() {
               </div>
 
               {/* Smart Outfit Validation Alert */}
-              <div className="main-item" style={{ marginBottom: '1rem' }}>
-                {validationResult.isValid && validationResult.severity === 'info' ? (
-                  <div 
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.04) 100%)',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
-                      borderRadius: '1rem',
-                      padding: '0.75rem 1.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      fontSize: '0.88rem',
-                      color: 'var(--text-secondary)',
-                      boxShadow: 'var(--shadow-sm)',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <span style={{ fontSize: '1.2rem' }}>✨</span>
-                    <span style={{ fontWeight: 600 }}>Current outfit still looks good.</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 'auto' }}>
-                      Fully compatible with {currentWeather.condition} weather & {currentSchool.activity}
-                    </span>
-                  </div>
-                ) : (
+              {(!validationResult.isValid || validationResult.severity !== 'info') && (
+                <div className="main-item" style={{ marginBottom: '1rem' }}>
                   <div 
                     style={{
                       background: validationResult.severity === 'critical' 
@@ -645,11 +561,11 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Feedback Section */}
-              <div className={`main-item ${tourActive && currentTourStepData.highlightId === 'feedback-section-card' ? 'tour-highlight' : ''}`}>
+              <div className={`main-item ${isDemoHighlighted('feedback-section-card') ? 'demo-highlight' : ''}`} id="feedback-section-card">
                 <FeedbackSection 
                   onFeedback={handleFeedback}
                   lastFeedback={currentFeedback}
@@ -660,7 +576,7 @@ export default function App() {
             </>
           ) : (
             /* Wardrobe Gallery Tab */
-            <div className={`main-item ${tourActive && currentTourStepData.highlightId === 'wardrobe-gallery-card' ? 'tour-highlight' : ''}`}>
+            <div className={`main-item ${isDemoHighlighted('wardrobe-gallery-card') ? 'demo-highlight' : ''}`} id="wardrobe-gallery-card">
               <WardrobeGallery 
                 items={currentWardrobe}
                 child={selectedChild}
@@ -679,68 +595,19 @@ export default function App() {
         </div>
       )}
 
-      {/* 5. Guided Walkthrough Tour Modal Overlay */}
-      {tourActive && (
-        <div className="tour-overlay">
-          <div className="tour-card">
-            <div className="tour-header">
-              <span className="tour-step-badge">
-                Step {tourStep} of {tourStepsData.length}
-              </span>
-              <button 
-                onClick={endTour}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  fontSize: '1.25rem', 
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <h4 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-family-playful)', color: 'var(--text-primary)' }}>
-                {currentTourStepData.title}
-              </h4>
-              <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                {currentTourStepData.caption}
-              </p>
-            </div>
-
-            <div className="tour-footer">
-              <button 
-                className="btn btn-secondary" 
-                onClick={prevTourStep}
-                disabled={tourStep === 1}
-                style={{ opacity: tourStep === 1 ? 0.5 : 1, padding: '0.5rem 1rem' }}
-              >
-                ← Back
-              </button>
-              
-              {tourStep < tourStepsData.length ? (
-                <button 
-                  className="btn btn-primary" 
-                  onClick={nextTourStep}
-                  style={{ padding: '0.5rem 1.25rem' }}
-                >
-                  Next Step →
-                </button>
-              ) : (
-                <button 
-                  className="btn" 
-                  onClick={endTour}
-                  style={{ background: 'var(--color-success)', color: 'white', padding: '0.5rem 1.25rem' }}
-                >
-                  Finish Demo 🎉
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 5. Guided Demo Mode */}
+      <GuidedDemo
+        children={mockChildren}
+        setSelectedChild={setSelectedChild}
+        setWeatherKey={setWeatherKey}
+        setSchoolKey={setSchoolKey}
+        setActiveTab={setActiveTab}
+        handleGenerateNewOutfit={handleGenerateNewOutfit}
+        handleGenerateUpdatedOutfit={handleGenerateUpdatedOutfit}
+        handleFeedback={handleFeedback}
+        onHighlightChange={setDemoHighlightIds}
+        onDemoActiveChange={setDemoActive}
+      />
 
       {/* 6. About Project Premium Modal */}
       {showAboutModal && (

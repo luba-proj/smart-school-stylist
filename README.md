@@ -62,10 +62,13 @@ The system is designed around a multi-agent Directed Acyclic Graph (DAG) orchest
 graph LR
     START([START]) --> LoadProfile[load_child_profile]
     LoadProfile --> LoadWardrobe[load_wardrobe_items]
-    LoadWardrobe --> AnalyzeWeather[analyze_weather]
-    AnalyzeWeather --> AnalyzeSchool[analyze_school_day]
-    AnalyzeSchool --> Recommend[recommend_outfits]
-    Recommend --> FinalResponse[final_response]
+    LoadProfile --> AnalyzeWeather[analyze_weather]
+    LoadProfile --> AnalyzeSchool[analyze_school_day]
+    LoadWardrobe --> Recommend[recommend_outfits]
+    AnalyzeWeather --> Recommend
+    AnalyzeSchool --> Recommend
+    Recommend --> FeedbackMemory[process_feedback_memory]
+    FeedbackMemory --> FinalResponse[final_response]
     FinalResponse --> END([END])
 ```
 
@@ -105,6 +108,7 @@ graph LR
 | **`analyze_weather`** | LLM Agent | Extracts weather conditions, temperature, warmth level | Gemini LLM |
 | **`analyze_school_day`** | LLM Agent | Identifies school activities and styling constraints | Gemini LLM |
 | **`recommend_outfits`** | LLM Agent | Selects 3 outfits (Comfort, Style, Weather) from wardrobe | Gemini LLM |
+| **`feedback_memory_agent`** | Utility | Processes parent feedback history and stores/logs feedback in context state | None |
 | **`final_response`** | Utility | Formats recommendations as user-facing Markdown | None |
 
 ---
@@ -114,7 +118,33 @@ graph LR
 ```
 smart-school-stylist/
 ├── app/                              # Backend: ADK 2.0 agent code
-│   ├── agent.py                      # Main agent workflow & Pydantic schemas
+│   ├── agents/                       # Individual specialized agent nodes
+│   │   ├── __init__.py
+│   │   ├── profile_agent.py          # Loads profiles and detects child names
+│   │   ├── wardrobe_agent.py         # Filters and loads available wardrobe
+│   │   ├── weather_agent.py          # Analyzes weather conditions using LLM
+│   │   ├── school_context_agent.py   # Extracts school activity constraints using LLM
+│   │   ├── stylist_agent.py          # Generates outfit recommendations using LLM
+│   │   └── feedback_memory_agent.py  # Tracks and processes parent feedback
+│   ├── data/                         # Mock data files
+│   │   ├── __init__.py
+│   │   ├── mock_profiles.py          # Static child profiles (Emma & Mia)
+│   │   └── mock_wardrobe.py          # 30+ clothing items with attributes and tags
+│   ├── schemas/                      # Pydantic data models
+│   │   ├── __init__.py
+│   │   ├── child_profile.py
+│   │   ├── wardrobe_item.py
+│   │   ├── weather_analysis.py
+│   │   ├── school_day_analysis.py
+│   │   ├── outfit.py
+│   │   └── feedback.py
+│   ├── services/                     # Model and authentication services
+│   │   ├── __init__.py
+│   │   └── model_config.py           # Gemini model initialization and fallback auth
+│   ├── workflows/                    # Graph orchestration pipelines
+│   │   ├── __init__.py
+│   │   └── outfit_workflow.py        # Defines the root Workflow and graph edges
+│   ├── agent.py                      # Thin entrypoint delegating to workflows
 │   ├── fast_api_app.py               # FastAPI server wrapper (SSE streaming)
 │   └── app_utils/                    # Telemetry & helper utilities
 ├── frontend/                         # Frontend: React + TypeScript + Vite

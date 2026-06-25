@@ -19,11 +19,14 @@ Choosing clothes for school can be a daily friction point for parents and childr
 ### Current Implementation Status
 
 #### Backend (Python + ADK 2.0)
-- **Core Orchestration**: Fully implemented in [agent.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/agent.py) using the Google ADK 2.0 API with six distinct nodes.
-- **Data Models**: Structured Pydantic schemas define profiles, wardrobe items, intermediate analysis, and recommendations.
+- **Core Orchestration**: Structured as a modular multi-agent architecture with a root graph workflow orchestrator in [outfit_workflow.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/workflows/outfit_workflow.py) and a thin entrypoint in [agent.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/agent.py).
+- **Separated Agents**: Individual agents (Profile, Wardrobe, Weather, School Context, Stylist, Feedback Memory) reside in their own modules under [app/agents/](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/agents/).
+- **Data Schemas**: Move all structured Pydantic schemas (profiles, wardrobe items, intermediate analyses, outfits, feedback) to the [app/schemas/](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/schemas/) package.
+- **Model & Services**: Gemini model initialization and fallback authentication are isolated in [model_config.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/services/model_config.py).
+- **Mock Data**: Wardrobe items and child profiles are separated in the [app/data/](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/data/) package.
 - **FastAPI Wrapper**: Server interface in [fast_api_app.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/fast_api_app.py) with SSE streaming.
 - **Telemetry**: OpenTelemetry tracing in [telemetry.py](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/app/app_utils/telemetry.py).
-- **Tests**: All unit and integration tests pass or skip cleanly.
+- **Tests**: Comprehensive unit and integration tests verify each modular component and the root workflow, all passing successfully.
 
 #### Frontend (React + TypeScript + Vite)
 - **Multi-Agent Engine**: 5 sequential agents (Wardrobe → Weather → School Context → Feedback Memory → Stylist) in [outfits.ts](file:///c:/Users/Owner/Documents/5-Day%20AI%20Agents/smart-school-stylist/smart-school-stylist/frontend/src/mock/outfits.ts) (1,261 lines).
@@ -71,10 +74,13 @@ graph TD
 graph LR
     START([START]) --> LoadProfile[load_child_profile]
     LoadProfile --> LoadWardrobe[load_wardrobe_items]
-    LoadWardrobe --> AnalyzeWeather[analyze_weather]
-    AnalyzeWeather --> AnalyzeSchool[analyze_school_day]
-    AnalyzeSchool --> Recommend[recommend_outfits]
-    Recommend --> FinalResponse[final_response]
+    LoadProfile --> AnalyzeWeather[analyze_weather]
+    LoadProfile --> AnalyzeSchool[analyze_school_day]
+    LoadWardrobe --> Recommend[recommend_outfits]
+    AnalyzeWeather --> Recommend
+    AnalyzeSchool --> Recommend
+    Recommend --> FeedbackMemory[process_feedback_memory]
+    FeedbackMemory --> FinalResponse[final_response]
     FinalResponse --> END([END])
 ```
 
@@ -116,6 +122,7 @@ graph LR
 | **`analyze_weather`** | LLM Agent | Extracts weather conditions, temperature, warmth level (1-5), rain gear flag | `{original_query}` | `WeatherAnalysis` JSON | Gemini LLM | Active |
 | **`analyze_school_day`** | LLM Agent | Extracts school day schedule constraints, activities, and style guidelines | `{original_query}`, `{child_profile}` | `SchoolDayAnalysis` JSON | Gemini LLM | Active |
 | **`recommend_outfits`** | LLM Agent | Selects 3 outfits (Comfort, Style, Weather) from the available wardrobe | `{child_profile}`, `{wardrobe_items}`, `{weather_analysis}`, `{school_day_analysis}` | `OutfitRecommendations` JSON | Gemini LLM | Active |
+| **`feedback_memory_agent`** | Utility Node | Processes parent feedback history and stores/logs feedback in context state | `OutfitRecommendations` dict | `OutfitRecommendations` dict | None | Active |
 | **`final_response`** | Utility Node | Formats the outfit recommendations into user-facing markdown text | `OutfitRecommendations` dict | Markdown string & SSE Event | None | Active |
 
 ### Frontend Agents (TypeScript)
